@@ -1,130 +1,102 @@
-/* EscavaPro - protótipo local.
-   Os dados são salvos no localStorage deste navegador.
-   Para equipe real, conecte Firebase e configure regras de segurança. */
-const STORAGE_KEY = "escavapro_demo_v1";
-const initialData = {jobs:[],clients:[],machines:[
-  {id:"machine-case",name:"CASE",code:"ESC-01",model:"Case",meter:0,oilDue:15000,status:"Disponível",notes:""},
-  {id:"machine-hyundai",name:"Hyundai",code:"ESC-02",model:"Hyundai",meter:0,oilDue:15000,status:"Disponível",notes:""},
-  {id:"machine-sany",name:"Sany",code:"ESC-03",model:"Sany",meter:0,oilDue:15000,status:"Disponível",notes:""},
-  {id:"machine-caterpillar",name:"Caterpillar",code:"ESC-04",model:"Caterpillar",meter:0,oilDue:15000,status:"Disponível",notes:""}
-],hours:[],maintenance:[],users:[
-  {id:crypto.randomUUID(),name:"Administrador de exemplo",email:"admin@exemplo.com",role:"Administrador"}
-]};
-let data = loadData();
-// Garante que a frota inicial exista também para quem já abriu a versão anterior.
-if (!data.machines || data.machines.length === 0) {
-  data.machines = [
-    {id:"machine-case",name:"CASE",code:"ESC-01",model:"Case",meter:0,oilDue:15000,status:"Disponível",notes:""},
-    {id:"machine-hyundai",name:"Hyundai",code:"ESC-02",model:"Hyundai",meter:0,oilDue:15000,status:"Disponível",notes:""},
-    {id:"machine-sany",name:"Sany",code:"ESC-03",model:"Sany",meter:0,oilDue:15000,status:"Disponível",notes:""},
-    {id:"machine-caterpillar",name:"Caterpillar",code:"ESC-04",model:"Caterpillar",meter:0,oilDue:15000,status:"Disponível",notes:""}
-  ]; localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-let currentView = "dashboard";
-let calendarDate = new Date();
-let editing = null;
-let toastTimer;
-
-function loadData(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||structuredClone(initialData)}catch{return structuredClone(initialData)}}
-function saveData(){localStorage.setItem(STORAGE_KEY,JSON.stringify(data));renderAll()}
-function id(){return crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())}
-function esc(v=""){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function money(v){return Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}
-function dateBR(v){if(!v)return "—";const [y,m,d]=v.split("-");return `${d}/${m}/${y}`}
-function hoursTotal(){return data.hours.reduce((s,x)=>s+Number(x.hours||0),0)}
-function machineName(machineId){return data.machines.find(m=>m.id===machineId)?.name||"Máquina removida"}
-function clientName(clientId, fallback=""){return data.clients.find(c=>c.id===clientId)?.name||fallback||"Cliente não cadastrado"}
-function statusClass(s){return (s||"").toLowerCase().replaceAll(" ","-")}
-function statusBadge(s){return `<span class="status ${statusClass(s)}">${esc(s||"—")}</span>`}
-function emptyRow(cols,msg="Nenhum registro encontrado."){return `<tr><td colspan="${cols}"><div class="empty-state">${msg}</div></td></tr>`}
-function table(headers,rows){return `<table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows||""}</tbody></table>`}
-function toast(msg){const el=document.getElementById("toast");el.textContent=msg;el.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove("show"),2600)}
-function openView(view){currentView=view;document.querySelectorAll(".view").forEach(el=>el.classList.add("hidden"));document.getElementById(`view-${view}`).classList.remove("hidden");document.querySelectorAll(".nav-link").forEach(b=>b.classList.toggle("active",b.dataset.view===view));const titles={dashboard:"Painel geral",agenda:"Agenda e serviços",clientes:"Clientes",maquinas:"Escavadeiras",horas:"Horas trabalhadas",manutencao:"Óleo e manutenção",usuarios:"Usuários e permissões"};document.getElementById("pageTitle").textContent=titles[view];renderAll()}
-document.querySelectorAll("[data-view]").forEach(b=>b.addEventListener("click",()=>openView(b.dataset.view)));
-document.querySelectorAll("[data-open]").forEach(b=>b.addEventListener("click",()=>openView(b.dataset.open)));
-document.getElementById("todayLabel").textContent=new Intl.DateTimeFormat("pt-BR",{weekday:"long",day:"2-digit",month:"long"}).format(new Date()).toUpperCase();
-
-function renderAll(){renderDashboard();renderJobs();renderClients();renderMachines();renderHours();renderMaintenance();renderUsers();renderCalendar();checkOilAlerts()}
-function renderDashboard(){
- document.getElementById("statScheduled").textContent=data.jobs.filter(j=>["Agendado","Aguardando"].includes(j.status)).length;
- document.getElementById("statHours").textContent=`${hoursTotal().toLocaleString("pt-BR",{maximumFractionDigits:2})} h`;
- document.getElementById("statDone").textContent=data.jobs.filter(j=>j.status==="Atendido").length;
- document.getElementById("statMachines").textContent=data.machines.length;
- const jobs=[...data.jobs].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).slice(0,5);
- document.getElementById("dashboardJobs").innerHTML=jobs.length?table(["Cliente / serviço","Data","Máquina","Operador","Status"],jobs.map(j=>`<tr><td><strong>${esc(clientName(j.clientId,j.clientName))}</strong><small>${esc(j.service||"Serviço")}</small></td><td>${dateBR(j.date)}<small>${esc(j.time||"Horário não definido")}</small></td><td>${esc(machineName(j.machineId))}</td><td>${esc(j.status==="Atendido"?(j.operator||"Não informado"):"—")}</td><td>${statusBadge(j.status)}</td></tr>`).join("")):`<div class="empty-state">Ainda não há serviços. Use “Agendar serviço” para começar.</div>`;
-}
-function renderJobs(){
- const q=(document.getElementById("jobSearch")?.value||"").toLowerCase(),st=document.getElementById("jobStatusFilter")?.value||"",dt=document.getElementById("jobDateFilter")?.value||"";
- const jobs=[...data.jobs].filter(j=>(!q||`${clientName(j.clientId,j.clientName)} ${j.service||""} ${j.location||""}`.toLowerCase().includes(q))&&(!st||j.status===st)&&(!dt||j.date===dt)).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
- document.getElementById("jobsTable").innerHTML=jobs.length?table(["Cliente / serviço","Data e hora","Local","Máquina","Operador","Status","Ações"],jobs.map(j=>`<tr><td><strong>${esc(clientName(j.clientId,j.clientName))}</strong><small>${esc(j.service||"—")}${j.phone?` · ${esc(j.phone)}`:""}</small></td><td>${dateBR(j.date)}<small>${esc(j.time||"—")}</small></td><td>${esc(j.location||"—")}</td><td>${esc(machineName(j.machineId))}</td><td>${esc(j.status==="Atendido"?(j.operator||"Não informado"):"—")}</td><td><select class="inline-status" data-status-job="${j.id}">${["Aguardando","Agendado","Atendido","Recusado"].map(s=>`<option ${s===j.status?"selected":""}>${s}</option>`).join("")}</select></td><td><div class="table-actions"><button class="mini-btn" data-edit-job="${j.id}">Editar</button><button class="mini-btn" data-delete-job="${j.id}">Excluir</button></div></td></tr>`).join("")):`<div class="empty-state">Nenhum serviço cadastrado com esses filtros.</div>`;
- document.querySelectorAll("[data-status-job]").forEach(el=>el.addEventListener("change",()=>{const j=data.jobs.find(x=>x.id===el.dataset.statusJob);if(j){j.status=el.value;saveData();toast("Status atualizado.")}}));
- document.querySelectorAll("[data-edit-job]").forEach(el=>el.addEventListener("click",()=>openJobForm(el.dataset.editJob)));
- document.querySelectorAll("[data-delete-job]").forEach(el=>el.addEventListener("click",()=>removeRecord("jobs",el.dataset.deleteJob,"serviço")));
+/* 3ª Geração Terraplenagem — protótipo mobile-first.
+   Nesta versão, os dados ficam no navegador. Login/permissões compartilhadas
+   exigem Firebase Authentication + Cloud Firestore e regras de segurança. */
+const KEY="terceira_geracao_mobile_v2";
+const machineDefaults=[
+ {id:"case-01",name:"CASE",code:"ESC-01",model:"CASE",meter:0,oilInterval:15000,lastOilAt:0,status:"Disponível"},
+ {id:"hyundai-02",name:"Hyundai",code:"ESC-02",model:"Hyundai",meter:0,oilInterval:15000,lastOilAt:0,status:"Disponível"},
+ {id:"sany-03",name:"Sany",code:"ESC-03",model:"Sany",meter:0,oilInterval:15000,lastOilAt:0,status:"Disponível"},
+ {id:"caterpillar-04",name:"Caterpillar",code:"ESC-04",model:"Caterpillar",meter:0,oilInterval:15000,lastOilAt:0,status:"Disponível"}
+];
+const defaults={clients:[],machines:machineDefaults,hours:[],maintenance:[],jobs:[],profile:{name:"Seja bem-vindo!"},acknowledgedOil:[]};
+function clone(x){return JSON.parse(JSON.stringify(x))}
+function load(){try{const saved=JSON.parse(localStorage.getItem(KEY));if(!saved)return clone(defaults);return {...clone(defaults),...saved,machines:saved.machines?.length?saved.machines:clone(machineDefaults),profile:{...defaults.profile,...saved.profile}}}catch{return clone(defaults)}}
+let db=load(),activeFilter="",selectedClientId=null,toastTimer=null,pendingOilId=null;
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid=()=>crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random());
+const num=v=>Number(v||0);
+const dateNow=()=>new Date().toISOString().slice(0,10);
+const dateBR=v=>{if(!v)return "—";const [y,m,d]=v.split("-");return `${d}/${m}/${y}`};
+const fmtHours=v=>`${num(v).toLocaleString("pt-BR",{maximumFractionDigits:2})} h`;
+const machine=id=>db.machines.find(m=>m.id===id);
+const client=id=>db.clients.find(c=>c.id===id);
+const machineLabel=id=>machine(id)?.name||"Máquina não definida";
+const clientLabel=j=>client(j.clientId)?.name||j.clientName||"Cliente";
+function save(){localStorage.setItem(KEY,JSON.stringify(db));renderAll()}
+function notify(msg){const el=$("toast");el.textContent=msg;el.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove("show"),2400)}
+function go(view){document.querySelectorAll(".view").forEach(v=>v.classList.add("hidden"));$("view-"+view).classList.remove("hidden");document.querySelectorAll("[data-go]").forEach(b=>{if(b.classList.contains("bottom-link"))b.classList.toggle("active",b.dataset.go===view)});window.scrollTo({top:0,behavior:"smooth"});renderAll()}
+document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
+function totalHours(){return db.hours.reduce((sum,h)=>sum+num(h.hours),0)}
+function activeOilAlerts(){return db.machines.filter(m=>num(m.oilInterval)>0&&num(m.meter)-num(m.lastOilAt)>=num(m.oilInterval))}
+function statusClass(s){return "status-"+String(s||"").replaceAll(" ","-")}
+function initials(name){return String(name||"?").trim().split(/\s+/).slice(0,2).map(p=>p[0]||"").join("").toUpperCase()}
+function renderAll(){renderHome();renderClients();renderMachines();renderHours();renderMaintenance();renderProfile();checkOilAlerts()}
+function renderHome(){
+ $("greetingName").textContent=db.profile.name||"Seja bem-vindo!";
+ $("homeClients").textContent=db.clients.length;
+ $("homeHours").textContent=fmtHours(totalHours());
+ $("homeMachines").textContent=db.machines.length;
+ const alerts=activeOilAlerts();$("homeOilAlert").classList.toggle("hidden",!alerts.length);
+ if(alerts.length)$("homeOilText").textContent=alerts.map(m=>m.name).join(", ")+" atingiu o intervalo de troca de óleo.";
+ const jobs=[...db.jobs].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0,4);
+ $("recentJobs").innerHTML=jobs.length?jobs.map(j=>`<div class="recent-item"><span class="row-symbol">✓</span><div class="row-main"><b>${esc(clientLabel(j))}</b><small>${esc(machineLabel(j.machineId))} · ${esc(j.operator||"Operador não informado")}<br>${dateBR(j.date)} · ${fmtHours(j.hours)}</small></div><span class="status-badge ${statusClass(j.status)}">${esc(j.status)}</span></div>`).join(""):`<div class="empty-state">Nenhum atendimento registrado ainda.<br>Entre em Clientes e cadastre o primeiro serviço.</div>`;
 }
 function renderClients(){
- const q=(document.getElementById("clientSearch")?.value||"").toLowerCase();
- const clients=data.clients.filter(c=>`${c.name} ${c.phone||""} ${c.email||""}`.toLowerCase().includes(q));
- document.getElementById("clientsTable").innerHTML=clients.length?table(["Nome","Telefone","E-mail","Observações","Ações"],clients.map(c=>`<tr><td><strong>${esc(c.name)}</strong></td><td>${esc(c.phone||"—")}</td><td>${esc(c.email||"—")}</td><td>${esc(c.notes||"—")}</td><td><div class="table-actions"><button class="mini-btn" data-edit-client="${c.id}">Editar</button><button class="mini-btn" data-delete-client="${c.id}">Excluir</button></div></td></tr>`).join("")):`<div class="empty-state">Nenhum cliente cadastrado.</div>`;
- document.querySelectorAll("[data-edit-client]").forEach(el=>el.addEventListener("click",()=>openClientForm(el.dataset.editClient)));
- document.querySelectorAll("[data-delete-client]").forEach(el=>el.addEventListener("click",()=>removeRecord("clients",el.dataset.deleteClient,"cliente")));
+ const q=($("clientSearch")?.value||"").toLowerCase();
+ const list=db.clients.filter(c=>`${c.name} ${c.phone||""} ${c.notes||""} ${db.jobs.filter(j=>j.clientId===c.id).map(j=>machineLabel(j.machineId)+" "+(j.operator||"")).join(" ")}`.toLowerCase().includes(q)).filter(c=>!activeFilter||latestJob(c.id)?.status===activeFilter);
+ $("clientsCards").innerHTML=list.length?list.map(c=>{
+  const j=latestJob(c.id)||{},s=j.status||"Aguardando";
+  return `<article class="client-card"><div class="client-top"><div class="client-avatar">${esc(initials(c.name))}</div><div class="client-name-block"><h3>${esc(c.name)}</h3><button class="edit-under-name" data-edit-client="${c.id}">✎ Editar cliente</button></div><span class="status-badge ${statusClass(s)}">${esc(s)}</span></div><div class="client-meta"><div><span class="meta-label">MÁQUINA</span><span class="meta-value">${esc(j.machineId?machineLabel(j.machineId):"Não definida")}</span></div><div><span class="meta-label">OPERADOR</span><span class="meta-value">${esc(j.operator||"Não informado")}</span></div><div><span class="meta-label">HORAS DO SERVIÇO</span><span class="meta-value">${fmtHours(j.hours)}</span></div><div><span class="meta-label">DATA DO SERVIÇO</span><span class="meta-value">${dateBR(j.date)}</span></div></div><div class="status-line"><label for="status-${c.id}">Status do cliente</label><select id="status-${c.id}" data-status-client="${c.id}">${["Aguardando","Agendado","Atendido","Recusado"].map(v=>`<option ${s===v?"selected":""}>${v}</option>`).join("")}</select></div><div class="card-actions"><button class="small-action primary" data-profile-client="${c.id}">Ver perfil completo</button><button class="small-action" data-add-job="${c.id}">＋ Serviço</button></div></article>`
+ }).join(""):`<div class="empty-state">Nenhum cliente encontrado.<br>Toque em “＋ Novo” para cadastrar o primeiro cliente.</div>`;
+ document.querySelectorAll("[data-edit-client]").forEach(b=>b.onclick=()=>clientForm(b.dataset.editClient));
+ document.querySelectorAll("[data-status-client]").forEach(s=>s.onchange=()=>{const c=client(s.dataset.statusClient);let j=latestJob(c.id);if(!j){j={id:uid(),clientId:c.id,clientName:c.name,date:dateNow(),status:s.value,hours:0};db.jobs.push(j)}else j.status=s.value;save();notify("Status do cliente atualizado.")});
+ document.querySelectorAll("[data-profile-client]").forEach(b=>b.onclick=()=>showClientProfile(b.dataset.profileClient));
+ document.querySelectorAll("[data-add-job]").forEach(b=>b.onclick=()=>jobForm(null,b.dataset.addJob));
 }
+function latestJob(clientId){return db.jobs.filter(j=>j.clientId===clientId).sort((a,b)=>(b.date||"").localeCompare(a.date||""))[0]}
 function renderMachines(){
- document.getElementById("machinesGrid").innerHTML=data.machines.length?data.machines.map(m=>`<article class="machine-card"><div class="machine-emoji">🚜</div><h3>${esc(m.name)}</h3><p>${esc(m.model||"Modelo não informado")} · ${esc(m.code||"Sem código")}</p><div class="machine-meta"><div><small>Horímetro atual</small><strong>${Number(m.meter||0).toLocaleString("pt-BR")} h</strong></div><div><small>Situação</small><strong>${esc(m.status||"Disponível")}</strong></div><div><small>Óleo / próxima troca</small><strong>${m.oilDue?`${Number(m.oilDue).toLocaleString("pt-BR")} h`:"Não definido"}</strong></div><div><small>Registros de horas</small><strong>${data.hours.filter(h=>h.machineId===m.id).length}</strong></div></div><div class="table-actions" style="margin-top:15px"><button class="mini-btn" data-edit-machine="${m.id}">Editar</button><button class="mini-btn" data-delete-machine="${m.id}">Excluir</button></div></article>`).join(""):`<div class="panel empty-state">Cadastre sua primeira escavadeira para acompanhar horímetro e manutenção.</div>`;
- document.querySelectorAll("[data-edit-machine]").forEach(el=>el.addEventListener("click",()=>openMachineForm(el.dataset.editMachine)));
- document.querySelectorAll("[data-delete-machine]").forEach(el=>el.addEventListener("click",()=>removeRecord("machines",el.dataset.deleteMachine,"máquina")));
+ $("machinesList").innerHTML=db.machines.map(m=>`<article class="machine-card"><div class="machine-head"><div class="machine-icon">🚜</div><div><h3>${esc(m.name)}</h3><p>${esc(m.code||"Sem código")} · ${esc(m.model||"Modelo não informado")}</p></div><span class="machine-badge">${esc(m.status||"Disponível")}</span></div><div class="machine-stats"><div class="machine-stat"><small>HORÍMETRO ATUAL</small><strong>${fmtHours(m.meter)}</strong></div><div class="machine-stat"><small>PRÓXIMA TROCA DE ÓLEO</small><strong>${fmtHours(num(m.lastOilAt)+num(m.oilInterval))}</strong></div></div><div class="machine-actions"><button class="small-action primary" data-edit-machine="${m.id}">Editar máquina</button><button class="small-action" data-machine-hours="${m.id}">＋ Lançar horas</button></div></article>`).join("")||`<div class="empty-state">Nenhuma máquina cadastrada.</div>`;
+ document.querySelectorAll("[data-edit-machine]").forEach(b=>b.onclick=()=>machineForm(b.dataset.editMachine));
+ document.querySelectorAll("[data-machine-hours]").forEach(b=>b.onclick=()=>hoursForm(null,b.dataset.machineHours));
 }
 function renderHours(){
- document.getElementById("hoursTotal").textContent=`${hoursTotal().toLocaleString("pt-BR",{maximumFractionDigits:2})} h`;
- document.getElementById("hoursCount").textContent=data.hours.length;
- const rows=[...data.hours].sort((a,b)=>b.date.localeCompare(a.date));
- document.getElementById("hoursTable").innerHTML=rows.length?table(["Data","Máquina","Operador","Horímetro inicial","Horímetro final","Horas do registro","Ações"],rows.map(h=>`<tr><td>${dateBR(h.date)}</td><td><strong>${esc(machineName(h.machineId))}</strong></td><td>${esc(h.operator||"—")}</td><td>${Number(h.start||0).toLocaleString("pt-BR")} h</td><td>${Number(h.end||0).toLocaleString("pt-BR")} h</td><td><strong>${Number(h.hours||0).toLocaleString("pt-BR")} h</strong></td><td><button class="mini-btn" data-delete-hours="${h.id}">Excluir</button></td></tr>`).join("")):`<div class="empty-state">Nenhuma hora lançada. Registre o horímetro para começar a acompanhar a produção.</div>`;
- document.querySelectorAll("[data-delete-hours]").forEach(el=>el.addEventListener("click",()=>removeRecord("hours",el.dataset.deleteHours,"lançamento de horas")));
+ $("hoursGrandTotal").textContent=fmtHours(totalHours());$("hoursRecordCount").textContent=`${db.hours.length} registro(s)`;
+ const rows=[...db.hours].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+ $("hoursList").innerHTML=rows.length?rows.map(h=>`<article class="data-row"><span class="row-symbol">◷</span><div class="row-main"><b>${esc(machineLabel(h.machineId))} · ${fmtHours(h.hours)}</b><small>${dateBR(h.date)} · Operador: ${esc(h.operator||"—")}<br>Horímetro ${num(h.start).toLocaleString("pt-BR")} → ${num(h.end).toLocaleString("pt-BR")}</small></div><button class="small-action" data-delete-hours="${h.id}">Excluir</button></article>`).join(""):`<div class="empty-state">Ainda não há horas registradas.<br>Use “Registrar horas” para lançar o horímetro.</div>`;
+ document.querySelectorAll("[data-delete-hours]").forEach(b=>b.onclick=()=>remove("hours",b.dataset.deleteHours,"registro de horas"));
 }
 function renderMaintenance(){
- const rows=[...data.maintenance].sort((a,b)=>b.date.localeCompare(a.date));
- document.getElementById("maintenanceTable").innerHTML=rows.length?table(["Data","Máquina","Tipo","Quantidade","Horímetro","Observações","Ações"],rows.map(m=>`<tr><td>${dateBR(m.date)}</td><td><strong>${esc(machineName(m.machineId))}</strong></td><td>${esc(m.type)}</td><td>${m.quantity?`${esc(m.quantity)} ${esc(m.unit||"L")}`:"—"}</td><td>${m.meter?`${esc(m.meter)} h`:"—"}</td><td>${esc(m.notes||"—")}</td><td><button class="mini-btn" data-delete-maintenance="${m.id}">Excluir</button></td></tr>`).join("")):`<div class="empty-state">Nenhum registro de óleo ou manutenção.</div>`;
- document.querySelectorAll("[data-delete-maintenance]").forEach(el=>el.addEventListener("click",()=>removeRecord("maintenance",el.dataset.deleteMaintenance,"registro")));
+ const alerts=activeOilAlerts();
+ $("oilAlerts").innerHTML=alerts.map(m=>`<article class="oil-warning"><h3>⚠ Troca de óleo pendente — ${esc(m.name)}</h3><p>Horímetro atual: ${fmtHours(m.meter)}. Intervalo configurado: ${fmtHours(m.oilInterval)} desde a última troca em ${fmtHours(m.lastOilAt)}.</p><button data-oil-ack="${m.id}">Ver alerta</button> <button data-oil-done="${m.id}">Registrar troca realizada</button></article>`).join("");
+ document.querySelectorAll("[data-oil-ack]").forEach(b=>b.onclick=()=>showOilAlert(machine(b.dataset.oilAck)));
+ document.querySelectorAll("[data-oil-done]").forEach(b=>b.onclick=()=>recordOilChange(b.dataset.oilDone));
+ const rows=[...db.maintenance].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+ $("maintenanceList").innerHTML=rows.length?rows.map(m=>`<article class="maintenance-card"><h3>${esc(m.type)} · ${esc(machineLabel(m.machineId))}</h3><p>${dateBR(m.date)} · ${m.quantity?esc(m.quantity)+" "+esc(m.unit||"L")+" · ":""}${m.meter?fmtHours(m.meter)+" · ":""}${esc(m.notes||"Sem observações")}</p></article>`).join(""):`<div class="empty-state">Nenhum registro de manutenção.<br>Registre as trocas para atualizar os alertas da frota.</div>`;
 }
-function renderUsers(){
- document.getElementById("usersTable").innerHTML=table(["Nome","E-mail","Perfil","O que o perfil deve fazer"],data.users.map(u=>`<tr><td><strong>${esc(u.name)}</strong></td><td>${esc(u.email||"—")}</td><td><span class="status agendado">${esc(u.role)}</span></td><td>${esc(({Administrador:"Gerenciar cadastros e configurações",Operador:"Lançar horas e atualizar serviços",Agendador:"Gerenciar clientes e agenda",Consulta:"Visualizar informações"})[u.role]||"Permissões a configurar")}</td></tr>`).join("")||emptyRow(4));
-}
-function renderCalendar(){
- const y=calendarDate.getFullYear(),m=calendarDate.getMonth(),first=new Date(y,m,1),last=new Date(y,m+1,0);
- document.getElementById("monthLabel").textContent=new Intl.DateTimeFormat("pt-BR",{month:"long",year:"numeric"}).format(calendarDate);
- const names=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];let html=names.map(n=>`<div class="calendar-day-name">${n}</div>`).join("");
- const start=first.getDay(),today=new Date();
- for(let i=0;i<start;i++){const d=new Date(y,m, i-start+1);html+=`<div class="calendar-cell muted"><span class="day-num">${d.getDate()}</span></div>`}
- for(let day=1;day<=last.getDate();day++){const ds=`${y}-${String(m+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;const jobs=data.jobs.filter(j=>j.date===ds);const istoday=today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===day;html+=`<div class="calendar-cell ${istoday?"today":""}"><span class="day-num">${day}</span>${jobs.slice(0,2).map(j=>`<span class="calendar-event" title="${esc(clientName(j.clientId,j.clientName))}">${esc(clientName(j.clientId,j.clientName))}</span>`).join("")}${jobs.length>2?`<span class="calendar-event">+${jobs.length-2} serviço(s)</span>`:""}</div>`}
- const used=start+last.getDate();for(let i=used;i%7!==0;i++)html+=`<div class="calendar-cell muted"><span class="day-num">${i-used+1}</span></div>`;
- document.getElementById("calendar").innerHTML=html;
-}
-document.getElementById("prevMonth").addEventListener("click",()=>{calendarDate.setMonth(calendarDate.getMonth()-1);renderCalendar()});
-document.getElementById("nextMonth").addEventListener("click",()=>{calendarDate.setMonth(calendarDate.getMonth()+1);renderCalendar()});
-["jobSearch","jobStatusFilter","jobDateFilter"].forEach(id=>document.getElementById(id).addEventListener("input",renderJobs));
-document.getElementById("clearJobFilters").addEventListener("click",()=>{["jobSearch","jobStatusFilter","jobDateFilter"].forEach(id=>document.getElementById(id).value="");renderJobs()});
-document.getElementById("clientSearch").addEventListener("input",renderClients);
-
-const dialog=document.getElementById("formDialog"),modalForm=document.getElementById("modalForm"),modalFields=document.getElementById("modalFields");
-document.getElementById("closeModal").onclick=()=>dialog.close();document.getElementById("cancelModal").onclick=()=>dialog.close();
-function field(name,label,type="text",opts={}){const full=opts.full?" full":"";let control="";if(type==="select"){control=`<select name="${name}" ${opts.required?"required":""}>${(opts.options||[]).map(o=>`<option value="${esc(o.value)}">${esc(o.label)}</option>`).join("")}</select>`}else if(type==="textarea"){control=`<textarea name="${name}" placeholder="${esc(opts.placeholder||"")}"></textarea>`}else{control=`<input name="${name}" type="${type}" ${opts.required?"required":""} ${opts.min!==undefined?`min="${opts.min}"`:""} ${opts.step?`step="${opts.step}"`:""} placeholder="${esc(opts.placeholder||"")}">`}return `<div class="field${full}"><label>${label}${opts.required?" *":""}</label>${control}</div>`}
-function openForm(title,fields,submit,record={}){editing=record.id||null;document.getElementById("modalTitle").textContent=title;modalFields.innerHTML=fields;for(const [k,v] of Object.entries(record)){const input=modalForm.elements.namedItem(k);if(input)input.value=v??""}modalForm.onsubmit=e=>{e.preventDefault();const obj=Object.fromEntries(new FormData(modalForm).entries());submit(obj);dialog.close()};dialog.showModal()}
-function openJobForm(editId=null){const j=data.jobs.find(x=>x.id===editId)||{};const clientOptions=[{value:"",label:"Selecionar cliente"},...data.clients.map(c=>({value:c.id,label:c.name}))];const machineOptions=[{value:"",label:"Selecionar máquina"},...data.machines.map(m=>({value:m.id,label:m.name}))];openForm(editId?"Editar serviço":"Agendar serviço",
- field("clientId","Cliente","select",{options:clientOptions})+field("clientName","Nome do cliente (se ainda não cadastrado)","text")+field("phone","Telefone","tel")+field("service","Tipo de serviço","text",{required:true})+field("date","Data","date",{required:true})+field("time","Horário","time",{required:true})+field("location","Local da obra","text",{full:true})+field("machineId","Escavadeira","select",{options:machineOptions})+field("operator","Nome do operador","text")+field("status","Status","select",{options:["Aguardando","Agendado","Atendido","Recusado"].map(s=>({value:s,label:s}))})+field("notes","Observações","textarea",{full:true}),
- obj=>{const item={...j,...obj,id:j.id||id(),status:obj.status||"Aguardando"};if(item.clientId){item.clientName=clientName(item.clientId)}if(j.id)data.jobs=data.jobs.map(x=>x.id===j.id?item:x);else data.jobs.push(item);saveData();toast("Serviço salvo.")},j)}
-function openClientForm(editId=null){const c=data.clients.find(x=>x.id===editId)||{};openForm(editId?"Editar cliente":"Novo cliente",field("name","Nome do cliente","text",{required:true,full:true})+field("phone","Telefone","tel")+field("email","E-mail","email")+field("notes","Observações","textarea",{full:true}),obj=>{const item={...c,...obj,id:c.id||id()};if(c.id)data.clients=data.clients.map(x=>x.id===c.id?item:x);else data.clients.push(item);saveData();toast("Cliente salvo.")},c)}
-function openMachineForm(editId=null){const m=data.machines.find(x=>x.id===editId)||{};openForm(editId?"Editar máquina":"Nova escavadeira",field("name","Nome / identificação","text",{required:true})+field("code","Código interno","text")+field("model","Marca e modelo","text")+field("meter","Horímetro atual (h)","number",{min:0,step:"0.1",required:true})+field("oilDue","Horímetro da próxima troca de óleo","number",{min:0,step:"0.1"})+field("status","Situação","select",{options:["Disponível","Em operação","Em manutenção"].map(s=>({value:s,label:s}))})+field("notes","Observações","textarea",{full:true}),obj=>{const item={...m,...obj,id:m.id||id(),meter:Number(obj.meter||0),oilDue:Number(obj.oilDue||0)};if(m.id)data.machines=data.machines.map(x=>x.id===m.id?item:x);else data.machines.push(item);saveData();toast("Máquina salva.")},m)}
-function openHoursForm(){if(!data.machines.length){toast("Cadastre uma máquina antes de lançar horas.");return}const today=new Date().toISOString().slice(0,10);openForm("Lançar horas trabalhadas",field("date","Data","date",{required:true})+field("machineId","Máquina","select",{required:true,options:data.machines.map(m=>({value:m.id,label:m.name}))})+field("operator","Operador / funcionário","text",{required:true})+field("start","Horímetro inicial (h)","number",{min:0,step:"0.1",required:true})+field("end","Horímetro final (h)","number",{min:0,step:"0.1",required:true})+field("notes","Observações","textarea",{full:true}),obj=>{const start=Number(obj.start),end=Number(obj.end);if(end<start){toast("O horímetro final não pode ser menor que o inicial.");return}const m=data.machines.find(x=>x.id===obj.machineId);const item={...obj,id:id(),hours:Math.round((end-start)*100)/100};data.hours.push(item);if(m&&end>Number(m.meter||0))m.meter=end;saveData();toast(`Lançadas ${item.hours} horas.`)},{date:today})}
-function openMaintenanceForm(){if(!data.machines.length){toast("Cadastre uma máquina antes de registrar manutenção.");return}openForm("Novo registro de óleo / manutenção",field("date","Data","date",{required:true})+field("machineId","Máquina","select",{required:true,options:data.machines.map(m=>({value:m.id,label:m.name}))})+field("type","Tipo de registro","select",{required:true,options:["Troca de óleo","Nível de óleo","Consumo de óleo","Manutenção preventiva","Manutenção corretiva","Outro"].map(s=>({value:s,label:s}))})+field("quantity","Quantidade","number",{min:0,step:"0.1"})+field("unit","Unidade","select",{options:[{value:"L",label:"Litros (L)"},{value:"h",label:"Horas"},{value:"un",label:"Unidades"}]})+field("meter","Horímetro no registro (h)","number",{min:0,step:"0.1"})+field("notes","Detalhes / serviço realizado","textarea",{full:true}),obj=>{data.maintenance.push({...obj,id:id()});saveData();toast("Registro de manutenção salvo.")})}
-function openUserForm(){openForm("Adicionar perfil de usuário (demonstração)",field("name","Nome","text",{required:true})+field("email","E-mail","email",{required:true})+field("role","Perfil","select",{required:true,options:["Administrador","Operador","Agendador","Consulta"].map(s=>({value:s,label:s}))})+`<div class="field full"><small>Este cadastro não cria uma conta nem aplica permissões reais. Isso será conectado ao Firebase na próxima etapa.</small></div>`,obj=>{data.users.push({...obj,id:id()});saveData();toast("Perfil demonstrativo adicionado.")})}
-function removeRecord(collection,recordId,label){if(!confirm(`Tem certeza que deseja excluir este ${label}?`))return;data[collection]=data[collection].filter(x=>x.id!==recordId);saveData();toast(`${label[0].toUpperCase()+label.slice(1)} excluído.`)}
+function renderProfile(){$("userName").value=db.profile.name||""}
 function checkOilAlerts(){
- const dueMachine=data.machines.find(m=>Number(m.oilDue||0)>0&&Number(m.meter||0)>=Number(m.oilDue)&&Number(m.oilAlertAcknowledgedAt||0)!==Number(m.oilDue));
- const alertDialog=document.getElementById("oilAlertDialog");
- if(!dueMachine||alertDialog.open)return;
- document.getElementById("oilAlertText").textContent=`A máquina ${dueMachine.name} atingiu ${Number(dueMachine.meter).toLocaleString("pt-BR")} horas, o limite configurado para a troca de óleo.`;
- document.getElementById("oilAlertMachine").textContent=`🚜 ${dueMachine.name} · Horímetro ${Number(dueMachine.meter).toLocaleString("pt-BR")} h · Troca prevista em ${Number(dueMachine.oilDue).toLocaleString("pt-BR")} h`;
- alertDialog.dataset.machineId=dueMachine.id;alertDialog.showModal();
+ const alerts=activeOilAlerts();$("notificationDot").style.display=alerts.length?"block":"none";
+ const unseen=alerts.find(m=>!db.acknowledgedOil.includes(m.id));if(unseen&&!$("oilDialog").open)showOilAlert(unseen);
 }
-document.getElementById("oilAlertOk").addEventListener("click",()=>{const m=data.machines.find(x=>x.id===document.getElementById("oilAlertDialog").dataset.machineId);if(m){m.oilAlertAcknowledgedAt=Number(m.oilDue);saveData()}document.getElementById("oilAlertDialog").close();toast("Alerta de óleo confirmado pelo responsável.")});
-document.getElementById("addJobBtn").onclick=()=>openJobForm();document.getElementById("addClientBtn").onclick=()=>openClientForm();document.getElementById("addMachineBtn").onclick=()=>openMachineForm();document.getElementById("addHoursBtn").onclick=openHoursForm;document.getElementById("addMaintenanceBtn").onclick=openMaintenanceForm;document.getElementById("addUserBtn").onclick=openUserForm;
+function showOilAlert(m){if(!m)return;pendingOilId=m.id;$("oilDialogTitle").textContent=`Hora de trocar o óleo — ${m.name}`;$("oilDialogText").textContent=`O horímetro de ${m.name} chegou a ${fmtHours(m.meter)}. O intervalo de troca configurado é ${fmtHours(m.oilInterval)}.`;if(!$("oilDialog").open)$("oilDialog").showModal()}
+$("ackOilBtn").onclick=()=>{if(pendingOilId&&!db.acknowledgedOil.includes(pendingOilId))db.acknowledgedOil.push(pendingOilId);$("oilDialog").close();save();notify("Aviso confirmado. Registre a troca quando o serviço for realizado.")};
+function recordOilChange(machineId){const m=machine(machineId);if(!m)return;const rec={id:uid(),machineId,type:"Troca de óleo",date:dateNow(),meter:num(m.meter),quantity:"",unit:"L",notes:"Troca registrada"};db.maintenance.push(rec);m.lastOilAt=num(m.meter);db.acknowledgedOil=db.acknowledgedOil.filter(x=>x!==machineId);save();notify("Troca registrada; próximo alerta atualizado.")}
+function field(name,label,type="text",options={}){let input="";if(type==="select")input=`<select name="${name}" ${options.required?"required":""}>${(options.items||[]).map(x=>`<option value="${esc(x.value)}">${esc(x.label)}</option>`).join("")}</select>`;else if(type==="textarea")input=`<textarea name="${name}" placeholder="${esc(options.placeholder||"")}"></textarea>`;else input=`<input name="${name}" type="${type}" ${options.required?"required":""} ${options.min!==undefined?`min="${options.min}"`:""} ${options.step?`step="${options.step}"`:""} placeholder="${esc(options.placeholder||"")}">`;return `<div class="field${options.full?" full":""}"><label>${label}${options.required?" *":""}</label>${input}</div>`}
+function openForm(title,markup,record,callback){$("modalTitle").textContent=title;$("modalFields").innerHTML=markup;for(const [k,v] of Object.entries(record||{})){const el=$("modalForm").elements.namedItem(k);if(el)el.value=v??""}const dlg=$("formDialog");$("modalForm").onsubmit=e=>{e.preventDefault();const obj=Object.fromEntries(new FormData($("modalForm")).entries());if(!callback(obj))return;dlg.close();save()};dlg.showModal()}
+function clientForm(editId=null){const c=client(editId)||{};openForm(editId?"Editar cliente":"Novo cliente",field("name","Nome do cliente","text",{required:true,full:true})+field("phone","Telefone / WhatsApp","tel")+field("notes","Endereço ou observações","textarea",{full:true}),c,obj=>{if(!obj.name.trim()){notify("Informe o nome do cliente.");return false}if(c.id)Object.assign(c,obj);else db.clients.push({...obj,id:uid()});return true})}
+function jobForm(jobId=null,clientId=null){const j=db.jobs.find(x=>x.id===jobId)||{};const machines=db.machines.map(m=>({value:m.id,label:m.name}));openForm(jobId?"Editar serviço":"Registrar serviço",field("clientId","Cliente","select",{required:true,items:db.clients.map(c=>({value:c.id,label:c.name}))})+field("machineId","Máquina","select",{required:true,items:machines})+field("operator","Nome do operador","text",{required:true})+field("date","Data do serviço","date",{required:true})+field("hours","Horas trabalhadas","number",{min:0,step:"0.1",required:true})+field("status","Status do atendimento","select",{required:true,items:["Aguardando","Agendado","Atendido","Recusado"].map(s=>({value:s,label:s}))})+field("notes","Detalhes do serviço","textarea",{full:true}),{...j,clientId:clientId||j.clientId||"",date:j.date||dateNow(),status:j.status||"Aguardando",hours:j.hours??0},obj=>{if(!obj.clientId){notify("Selecione o cliente.");return false}if(!obj.machineId){notify("Selecione a máquina.");return false}obj.hours=num(obj.hours);const m=machine(obj.machineId);const prior=num(m?.meter);const item={...j,...obj,id:j.id||uid(),clientName:client(obj.clientId)?.name||""};if(j.id)db.jobs=db.jobs.map(x=>x.id===j.id?item:x);else db.jobs.push(item);if(item.status==="Atendido"&&item.hours>0){db.hours.push({id:uid(),date:item.date,machineId:item.machineId,operator:item.operator,start:prior,end:prior+item.hours,hours:item.hours,notes:"Horas lançadas pelo atendimento"});if(m)m.meter=prior+item.hours}return true})}
+function machineForm(editId=null){const m=machine(editId)||{};openForm(editId?"Editar máquina":"Cadastrar máquina",field("name","Nome da máquina","text",{required:true})+field("code","Código interno","text")+field("model","Modelo","text")+field("meter","Horímetro atual (h)","number",{min:0,step:"0.1",required:true})+field("oilInterval","Intervalo de troca de óleo (h)","number",{min:0,step:"1",required:true})+field("lastOilAt","Horímetro da última troca (h)","number",{min:0,step:"0.1",required:true})+field("status","Situação","select",{items:["Disponível","Em operação","Em manutenção"].map(s=>({value:s,label:s}))}),{...m,meter:m.meter??0,oilInterval:m.oilInterval??15000,lastOilAt:m.lastOilAt??0,status:m.status||"Disponível"},obj=>{const item={...m,...obj,id:m.id||uid(),meter:num(obj.meter),oilInterval:num(obj.oilInterval),lastOilAt:num(obj.lastOilAt)};if(m.id)db.machines=db.machines.map(x=>x.id===m.id?item:x);else db.machines.push(item);return true})}
+function hoursForm(machineId=null){openForm("Registrar horas trabalhadas",field("machineId","Máquina","select",{required:true,items:db.machines.map(m=>({value:m.id,label:m.name}))})+field("date","Data","date",{required:true})+field("operator","Nome do operador","text",{required:true})+field("start","Horímetro inicial (h)","number",{min:0,step:"0.1",required:true})+field("end","Horímetro final (h)","number",{min:0,step:"0.1",required:true})+field("notes","Observações","textarea",{full:true}),{machineId:machineId||db.machines[0]?.id||"",date:dateNow()},obj=>{const start=num(obj.start),end=num(obj.end);if(end<start){notify("O horímetro final não pode ser menor que o inicial.");return false}const m=machine(obj.machineId);if(m&&start<num(m.meter)&&end<=num(m.meter)){notify("Confira o horímetro: esse lançamento parece anterior ao valor atual da máquina.");return false}db.hours.push({...obj,id:uid(),start,end,hours:Math.round((end-start)*100)/100});if(m)m.meter=Math.max(num(m.meter),end);return true})}
+function maintenanceForm(){openForm("Registrar óleo / manutenção",field("machineId","Máquina","select",{required:true,items:db.machines.map(m=>({value:m.id,label:m.name}))})+field("type","Tipo de registro","select",{required:true,items:["Troca de óleo","Nível de óleo","Consumo de óleo","Manutenção preventiva","Manutenção corretiva","Outro"].map(s=>({value:s,label:s}))})+field("date","Data","date",{required:true})+field("quantity","Quantidade","number",{min:0,step:"0.1"})+field("unit","Unidade","select",{items:[{value:"L",label:"Litros"},{value:"un",label:"Unidades"},{value:"h",label:"Horas"}]})+field("meter","Horímetro do serviço (h)","number",{min:0,step:"0.1"})+field("notes","Observações","textarea",{full:true}),{date:dateNow(),unit:"L"},obj=>{const m=machine(obj.machineId);if(obj.type==="Troca de óleo"&&m){m.lastOilAt=num(obj.meter)||num(m.meter);db.acknowledgedOil=db.acknowledgedOil.filter(x=>x!==m.id)}db.maintenance.push({...obj,id:uid()});return true})}
+function showClientProfile(id){selectedClientId=id;const c=client(id);if(!c)return;const jobs=db.jobs.filter(j=>j.clientId===id).sort((a,b)=>(b.date||"").localeCompare(a.date||""));const hours=jobs.reduce((s,j)=>s+num(j.hours),0);$("clientProfileContent").innerHTML=`<div class="client-profile-hero"><span class="section-kicker">FICHA DO CLIENTE</span><h2>${esc(c.name)}</h2><p>${esc(c.phone||"Telefone não cadastrado")}</p><button class="edit-under-name" data-profile-edit="${c.id}">✎ Editar cliente</button></div><div class="profile-metrics"><div class="metric-box"><small>TOTAL DE HORAS DE SERVIÇO</small><strong>${fmtHours(hours)}</strong></div><div class="metric-box"><small>SERVIÇOS REGISTRADOS</small><strong>${jobs.length}</strong></div></div><div class="profile-section"><h3>Informações do cliente</h3><div class="machine-stat"><small>TELEFONE</small><strong>${esc(c.phone||"—")}</strong></div><div class="machine-stat" style="margin-top:8px"><small>OBSERVAÇÕES / LOCAL</small><strong>${esc(c.notes||"—")}</strong></div></div><div class="profile-section"><h3>Serviços e máquinas</h3>${jobs.length?jobs.map(j=>`<div class="data-row" style="margin-bottom:8px"><span class="row-symbol">🚜</span><div class="row-main"><b>${esc(machineLabel(j.machineId))} · ${fmtHours(j.hours)}</b><small>${dateBR(j.date)} · Operador: ${esc(j.operator||"—")}<br>${esc(j.notes||"Sem observações")}</small></div><span class="status-badge ${statusClass(j.status)}">${esc(j.status)}</span></div>`).join(""):`<div class="empty-state">Nenhum serviço registrado para este cliente.</div>`}<button class="primary-button wide-button" data-profile-add-job="${c.id}" style="margin-top:12px">＋ Adicionar serviço</button></div>`;$("clientProfileContent").querySelector("[data-profile-edit]").onclick=()=>clientForm(c.id);$("clientProfileContent").querySelector("[data-profile-add-job]").onclick=()=>jobForm(null,c.id);go("cliente-perfil")}
+function remove(collection,id,label){if(!confirm(`Excluir este ${label}?`))return;db[collection]=db[collection].filter(x=>x.id!==id);save();notify(`${label[0].toUpperCase()+label.slice(1)} excluído.`)}
+$("addClientBtn").onclick=()=>clientForm();$("addMachineBtn").onclick=()=>machineForm();$("addHoursBtn").onclick=()=>hoursForm();$("addMaintenanceBtn").onclick=()=>maintenanceForm();
+$("clientSearch").addEventListener("input",renderClients);
+$("clientStatusFilters").querySelectorAll("[data-filter]").forEach(b=>b.onclick=()=>{activeFilter=b.dataset.filter;$("clientStatusFilters").querySelectorAll(".filter-chip").forEach(x=>x.classList.toggle("selected",x===b));renderClients()});
+$("saveProfileBtn").onclick=()=>{db.profile.name=$("userName").value.trim()||"Seja bem-vindo!";save();notify("Perfil atualizado.")};
+$("backToClients").onclick=()=>go("clientes");
+$("notificationsBtn").onclick=()=>{const m=activeOilAlerts()[0];if(m)showOilAlert(m);else{go("manutencao");notify("Nenhum alerta de óleo pendente.")}};
+$("exportBtn").onclick=()=>{const blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="3a-geracao-backup.json";a.click();URL.revokeObjectURL(url);notify("Backup preparado para baixar.")};
+$("closeModal").onclick=()=>$("formDialog").close();$("cancelModal").onclick=()=>$("formDialog").close();
 renderAll();

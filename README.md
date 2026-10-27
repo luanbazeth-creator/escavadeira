@@ -1,46 +1,28 @@
-# 3ª Geração Terraplenagem — protótipo de gestão de escavadeiras
+# 3ª Geração Terraplenagem — interface mobile
 
-## O que está incluído
-- Painel com totais de serviços, horas e máquinas.
-- Agenda em formato de lista com filtros e calendário mensal.
-- Cadastro de clientes.
-- Cadastro de várias escavadeiras e horímetro.
-- Lançamento de horas por funcionário, usando horímetro inicial e final.
-- Registros de troca, nível e consumo de óleo e manutenção.
-- Status do serviço: Aguardando, Agendado, Atendido e Recusado.
-- Interface azul-marinho e azul inspirada na identidade visual enviada.
-- Frota inicial: CASE, Hyundai, Sany e Caterpillar.
-- Campo de operador no serviço e identificação do operador quando o serviço é marcado como atendido.
-- Alerta visual de troca de óleo quando o horímetro atinge o limite configurado; exige confirmação no botão “OK, estou ciente”.
-- Interface adaptada para celular e computador.
-- Imagem de identidade visual incluída em `assets/terraplenagem-3a-geracao.jpeg`.
+## O que mudou nesta versão
+- Interface redesenhada para celular, inspirada na referência enviada: fundo escuro texturizado, azul, detalhes laranja e navegação inferior.
+- Início com cartões de acesso rápido.
+- Removida a agenda em calendário.
+- Clientes aparecem em cartões, como um catálogo/cardápio, com status editável.
+- O nome do cliente aparece primeiro; o botão “Editar cliente” fica logo abaixo do nome.
+- Removido o campo de e-mail do cadastro do cliente.
+- Ficha individual do cliente com máquinas, operador, horas e histórico de serviços.
+- Máquinas padrão: CASE, Hyundai, Sany e Caterpillar.
+- Lançamento de horas com cálculo pelo horímetro inicial/final.
+- Alertas de óleo e registro de troca. O intervalo inicial de 15.000 horas é apenas exemplo e deve ser ajustado conforme a orientação técnica de cada equipamento.
+- Exportação de backup em JSON.
 
 ## Como abrir
-1. Extraia o arquivo ZIP para uma pasta.
-2. Abra `index.html` no navegador, ou abra a pasta no Visual Studio Code e use a extensão Live Server.
-3. Os dados desta demonstração são salvos no `localStorage` do navegador atual.
+1. Extraia o ZIP.
+2. Abra `index.html` no navegador ou use Live Server no Visual Studio Code.
+3. O sistema salva os dados no armazenamento local do navegador.
 
-## Importante antes de usar com uma equipe
-Esta primeira versão é um protótipo front-end. Os dados não são compartilhados entre computadores e usuários. O cadastro de perfis é ilustrativo e não implementa autenticação nem segurança real.
+## Importante
+Este é um protótipo front-end. Dados não são sincronizados entre celulares/computadores. Os perfis e permissões reais ainda precisam de Firebase Authentication, Cloud Firestore e regras de segurança. Não use o protótipo local como sistema multiusuário de produção.
 
-Para transformar em sistema multiusuário:
-1. Crie um projeto no Firebase Console.
-2. Ative Firebase Authentication (por exemplo, e-mail e senha).
-3. Crie um banco Cloud Firestore.
-4. Configure as regras do Firestore para que cada usuário só possa executar ações autorizadas.
-5. Conecte a aplicação ao Firebase SDK e implemente perfis/roles verificados no backend/regras. Não confie em um perfil salvo apenas no navegador.
-6. Publique em um serviço de hospedagem HTTPS, como Firebase Hosting.
-
-## Alerta de óleo
-Cada máquina começa com a próxima troca configurada em 15.000 horas como exemplo. Ajuste o campo “Horímetro da próxima troca de óleo” para o intervalo real definido pela empresa. O alerta é demonstrativo e aparece neste navegador; ele não envia notificações a outros dispositivos.
-
-## Personalização
-- Nome e logotipo demonstrativo: `index.html`.
-- Cores, tipografia e layout: `style.css`.
-- Campos, cadastros, filtros e renderização: `app.js`.
-
-## Próximos passos recomendados
-- Definir nome, logo e cores reais da empresa.
-- Implementar login de verdade e permissões de Administrador, Operador, Agendador e Consulta.
-- Sincronizar clientes, agenda, máquinas, horas e manutenção no Firestore.
-- Adicionar histórico de alterações, backup/exportação CSV e validação de conflitos de agenda.
+## Arquivos
+- `index.html`: estrutura e navegação.
+- `style.css`: cores e layout responsivo.
+- `app.js`: cadastros, status, horas e alertas.
+- `assets/terraplenagem-3a-geracao.jpeg`: imagem da identidade visual fornecida.
