@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f2b705">
+  <title>EscavaPro | Gestão de máquinas</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">3ª</div>
+      <div><strong id="brandName">3ª Geração</strong><small>TERRAPLENAGEM</small></div>
+    </div>
+    <nav>
+      <button class="nav-link active" data-view="dashboard">▦ <span>Painel geral</span></button>
+      <button class="nav-link" data-view="agenda">▦ <span>Agenda e serviços</span></button>
+      <button class="nav-link" data-view="clientes">♙ <span>Clientes</span></button>
+      <button class="nav-link" data-view="maquinas">⚙ <span>Escavadeiras</span></button>
+      <button class="nav-link" data-view="horas">◷ <span>Horas trabalhadas</span></button>
+      <button class="nav-link" data-view="manutencao">🔧 <span>Óleo e manutenção</span></button>
+      <button class="nav-link" data-view="usuarios">♧ <span>Usuários e permissões</span></button>
+    </nav>
+    <div class="sidebar-bottom">
+      <span class="demo-pill">SISTEMA DE OPERAÇÃO</span>
+      <small>Os dados ficam neste navegador.</small>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow" id="todayLabel">GESTÃO DE EQUIPAMENTOS</p>
+        <h1 id="pageTitle">Painel geral</h1>
+      </div>
+      <div class="top-actions">
+        <span class="user-chip"><span class="avatar">AD</span><span><b>Administrador</b><small>Perfil de demonstração</small></span></span>
+      </div>
+    </header>
+
+    <section id="view-dashboard" class="view">
+      <div class="welcome">
+        <div><p class="eyebrow">TERRAPLENAGEM · 3ª GERAÇÃO</p><h2>Força na obra.<br><span>Controle em cada hora.</span></h2><p>Máquinas, operadores, serviços e manutenção em um só lugar.</p></div>
+        <div class="welcome-icon">🚜</div>
+      </div>
+      <div class="stats-grid">
+        <article class="stat-card"><span class="stat-icon yellow">▦</span><p>Serviços agendados</p><strong id="statScheduled">0</strong><small>Na sua agenda</small></article>
+        <article class="stat-card"><span class="stat-icon blue">◷</span><p>Horas registradas</p><strong id="statHours">0 h</strong><small>Total lançado</small></article>
+        <article class="stat-card"><span class="stat-icon green">✓</span><p>Serviços atendidos</p><strong id="statDone">0</strong><small>Concluídos</small></article>
+        <article class="stat-card"><span class="stat-icon orange">⚙</span><p>Máquinas cadastradas</p><strong id="statMachines">0</strong><small>Na frota</small></article>
+      </div>
+      <div class="content-grid">
+        <article class="panel">
+          <div class="panel-heading"><div><h3>Próximos serviços</h3><p>Confira os compromissos cadastrados.</p></div><button class="btn btn-dark" data-open="agenda">Ver agenda →</button></div>
+          <div id="dashboardJobs" class="table-wrap"></div>
+        </article>
+        <article class="panel quick-panel">
+          <div class="panel-heading"><div><h3>Ações rápidas</h3><p>Cadastre informações da operação.</p></div></div>
+          <button class="quick-action" data-open="agenda"><span>＋</span><div><b>Agendar serviço</b><small>Cliente, horário e máquina</small></div><i>→</i></button>
+          <button class="quick-action" data-open="horas"><span>◷</span><div><b>Lançar horas</b><small>Registrar jornada da máquina</small></div><i>→</i></button>
+          <button class="quick-action" data-open="manutencao"><span>🔧</span><div><b>Registrar manutenção</b><small>Óleo e manutenção preventiva</small></div><i>→</i></button>
+          <button class="quick-action" data-open="maquinas"><span>🚜</span><div><b>Adicionar máquina</b><small>Atualizar a frota</small></div><i>→</i></button>
+        </article>
+      </div>
+    </section>
+
+    <section id="view-agenda" class="view hidden">
+      <div class="section-toolbar"><div><h2>Agenda e serviços</h2><p>Organize os pedidos e acompanhe o status de cada cliente.</p></div><button class="btn btn-primary" id="addJobBtn">＋ Novo serviço</button></div>
+      <div class="filters"><input id="jobSearch" placeholder="Buscar cliente, serviço ou local..."><select id="jobStatusFilter"><option value="">Todos os status</option><option>Aguardando</option><option>Agendado</option><option>Atendido</option><option>Recusado</option></select><input id="jobDateFilter" type="date" aria-label="Filtrar por data"><button class="btn btn-light" id="clearJobFilters">Limpar filtros</button></div>
+      <div class="panel"><div id="jobsTable" class="table-wrap"></div></div>
+      <div class="panel calendar-panel"><div class="panel-heading"><div><h3>Calendário mensal</h3><p>Visão rápida dos dias com serviços.</p></div><div class="calendar-controls"><button class="btn btn-light" id="prevMonth">←</button><strong id="monthLabel"></strong><button class="btn btn-light" id="nextMonth">→</button></div></div><div id="calendar" class="calendar"></div></div>
+    </section>
+
+    <section id="view-clientes" class="view hidden">
+      <div class="section-toolbar"><div><h2>Clientes</h2><p>Cadastre e consulte os contatos dos clientes.</p></div><button class="btn btn-primary" id="addClientBtn">＋ Novo cliente</button></div>
+      <div class="filters"><input id="clientSearch" placeholder="Buscar por nome ou telefone..."></div>
+      <div class="panel"><div id="clientsTable" class="table-wrap"></div></div>
+    </section>
+
+    <section id="view-maquinas" class="view hidden">
+      <div class="section-toolbar"><div><h2>Escavadeiras e máquinas</h2><p>Controle sua frota e os horímetros.</p></div><button class="btn btn-primary" id="addMachineBtn">＋ Nova máquina</button></div>
+      <div id="machinesGrid" class="machine-grid"></div>
+    </section>
+
+    <section id="view-horas" class="view hidden">
+      <div class="section-toolbar"><div><h2>Horas trabalhadas</h2><p>Registre horímetro inicial/final e acompanhe o total de cada máquina.</p></div><button class="btn btn-primary" id="addHoursBtn">＋ Lançar horas</button></div>
+      <div class="stats-grid compact"><article class="stat-card"><p>Total de horas lançadas</p><strong id="hoursTotal">0 h</strong></article><article class="stat-card"><p>Registros lançados</p><strong id="hoursCount">0</strong></article></div>
+      <div class="panel"><div id="hoursTable" class="table-wrap"></div></div>
+    </section>
+
+    <section id="view-manutencao" class="view hidden">
+      <div class="section-toolbar"><div><h2>Óleo e manutenção</h2><p>Registre troca de óleo, níveis, consumo e manutenções.</p></div><button class="btn btn-primary" id="addMaintenanceBtn">＋ Novo registro</button></div>
+      <div class="panel"><div id="maintenanceTable" class="table-wrap"></div></div>
+    </section>
+
+    <section id="view-usuarios" class="view hidden">
+      <div class="section-toolbar"><div><h2>Usuários e permissões</h2><p>Planeje os perfis de acesso da equipe.</p></div><button class="btn btn-primary" id="addUserBtn">＋ Novo usuário</button></div>
+      <div class="notice"><b>Importante:</b> esta versão é uma demonstração local. Os perfis abaixo são apenas ilustrativos e não protegem dados. Antes de usar com uma equipe real, configure Firebase Authentication e regras de segurança no Firestore.</div>
+      <div class="panel"><div id="usersTable" class="table-wrap"></div></div>
+    </section>
+
+    <footer>EscavaPro · Protótipo inicial · Personalize o nome, logotipo e cores da empresa.</footer>
+  </main>
+
+  <dialog id="formDialog">
+    <form id="modalForm" method="dialog">
+      <div class="modal-heading"><div><p class="eyebrow">CADASTRO</p><h2 id="modalTitle">Novo registro</h2></div><button type="button" class="icon-button" id="closeModal" aria-label="Fechar">×</button></div>
+      <div id="modalFields" class="form-grid"></div>
+      <div class="modal-actions"><button type="button" class="btn btn-light" id="cancelModal">Cancelar</button><button type="submit" class="btn btn-primary">Salvar registro</button></div>
+    </form>
+  </dialog>
+  <dialog id="oilAlertDialog" class="oil-alert-dialog">
+    <div class="oil-alert-content"><div class="oil-alert-icon">!</div><p class="eyebrow">ALERTA DE MANUTENÇÃO</p><h2>Hora de trocar o óleo!</h2><p id="oilAlertText">Uma máquina atingiu o horímetro programado para troca de óleo.</p><div class="oil-alert-machine" id="oilAlertMachine"></div><p class="oil-alert-note">Confirme este aviso após o responsável tomar ciência da manutenção.</p><button type="button" class="btn btn-primary oil-ok" id="oilAlertOk">OK, estou ciente</button></div>
+  </dialog>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
