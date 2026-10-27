@@ -26,3 +26,10 @@ Este é um protótipo front-end. Dados não são sincronizados entre celulares/c
 - `style.css`: cores e layout responsivo.
 - `app.js`: cadastros, status, horas e alertas.
 - `assets/terraplenagem-3a-geracao.jpeg`: imagem da identidade visual fornecida.
+
+## Melhorias desta revisão
+- Ajustes responsivos para evitar a tela esticada e a rolagem horizontal em celulares.
+- Formulários adaptados a telas pequenas, com campos em uma coluna e controles maiores para toque.
+- Ao registrar horas, agora é obrigatório vincular o lançamento a um cliente, além de informar máquina, data, operador e horímetro inicial/final.
+- A ficha do cliente mostra as horas lançadas diretamente para ele e tem um botão para adicionar novos lançamentos.
+- A lista geral de horas identifica o cliente de cada lançamento.
