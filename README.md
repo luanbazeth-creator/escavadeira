@@ -33,3 +33,14 @@ Este é um protótipo front-end. Dados não são sincronizados entre celulares/c
 - Ao registrar horas, agora é obrigatório vincular o lançamento a um cliente, além de informar máquina, data, operador e horímetro inicial/final.
 - A ficha do cliente mostra as horas lançadas diretamente para ele e tem um botão para adicionar novos lançamentos.
 - A lista geral de horas identifica o cliente de cada lançamento.
+
+
+## Melhorias no registro de serviços
+- Registro com data inicial e final, cada uma acompanhada pelo horímetro correspondente.
+- Horas trabalhadas calculadas pelo horímetro final menos o inicial.
+- Valor da hora definido pelo responsável; o total é calculado automaticamente.
+- Forma de pagamento à vista ou parcelada em até 12 vezes.
+- Controle manual de parcelas pagas na ficha do cliente, incluindo a data do pagamento.
+- Máquina Caterpillar removida da lista padrão.
+
+Observação: esta versão ainda salva dados no navegador deste aparelho. Para sincronizar dados entre aparelhos, é necessário integrar Firebase.
