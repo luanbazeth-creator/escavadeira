@@ -44,3 +44,14 @@ Este é um protótipo front-end. Dados não são sincronizados entre celulares/c
 - Máquina Caterpillar removida da lista padrão.
 
 Observação: esta versão ainda salva dados no navegador deste aparelho. Para sincronizar dados entre aparelhos, é necessário integrar Firebase.
+
+## Publicar para abrir pelo celular (importante)
+O ZIP é o código-fonte, não é um endereço de site. Para abrir pelo celular com um link, publique a pasta `escava_pro` em um serviço de hospedagem estática, como Netlify Drop ou GitHub Pages. Depois de publicar, abra o link gerado no navegador do celular. Não basta enviar o arquivo ZIP pelo WhatsApp.
+
+### Opção simples com computador
+1. Extraia o ZIP.
+2. Abra o site Netlify Drop no navegador do computador: https://app.netlify.com/drop
+3. Arraste a pasta `escava_pro` extraída para a página (se não aceitar a pasta, compacte o conteúdo da pasta em um ZIP e envie esse ZIP).
+4. Aguarde o endereço público ser criado e abra esse endereço no celular.
+
+A publicação apenas disponibiliza o site na internet. Os dados ainda ficam guardados no navegador de cada aparelho; para compartilhar clientes, serviços e pagamentos entre aparelhos, será preciso conectar o Firebase.
